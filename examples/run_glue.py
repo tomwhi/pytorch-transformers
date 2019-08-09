@@ -23,6 +23,9 @@ import logging
 import os
 import random
 
+import sys
+sys.path.append('/home/yingao/pytorch-transformers')
+print('append working directory to the sys path')
 import numpy as np
 import torch
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
