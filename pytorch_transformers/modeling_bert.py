@@ -967,7 +967,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
 
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
+        self.classifier = nn.Linear(config.hidden_size, 2)
 
         self.apply(self.init_weights)
 
@@ -984,9 +984,10 @@ class BertForSequenceClassification(BertPreTrainedModel):
 
         if labels is not None:
             if self.num_labels == 1:
-                #  We are doing regression
-                loss_fct = MSELoss()
-                loss = loss_fct(logits.view(-1), labels.view(-1))
+                #  We are doing regression with uncertainty measure
+                loss_fct = PricePredictionLoss(alpha=0.4)
+                loss = loss_fct(logits.view(-1,2), labels.view(-1))
+
             else:
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
@@ -994,6 +995,19 @@ class BertForSequenceClassification(BertPreTrainedModel):
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
+class PricePredictionLoss(nn.Module):
+	def __init__(self, alpha):
+		super(PricePredictionLoss, self).__init__()
+		self.alpha = alpha
+
+	def forward(self, pred, label):
+		mean = pred[:, 0]
+		var = pred[:, 1]
+		squared_dis = torch.pow((label-mean), 2)
+		div = torch.div(squared_dis, var)
+		loss = torch.add(div, self.alpha*var)
+		loss = torch.mean(loss)
+		return loss
 
 @add_start_docstrings("""Bert Model with a multiple choice classification head on top (a linear layer on top of
     the pooled output and a softmax) e.g. for RocStories/SWAG tasks. """,
